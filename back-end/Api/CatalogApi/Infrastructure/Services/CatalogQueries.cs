@@ -11,7 +11,7 @@ namespace CatalogApi.Infrastructure.Services
     public class CatalogQueries : ICatalogQueries
     {
         protected CatalogContext CatalogContext { get; set; }
-        private CatalogContext _catalogContext;
+        private readonly CatalogContext _catalogContext;
 
         public CatalogQueries(CatalogContext context)
         {

@@ -27,12 +27,14 @@ namespace CatalogApi.Controllers
     public class CatalogDiscController : Controller
     {
         private IBucket _discounts;
+        private readonly IDiscountQueries _discountQueries;
         private readonly ICatalogQueries _catalogQueries;
 
-        public CatalogDiscController(IBucketProvider bucketProvider, ICatalogQueries catalogQueries)
+        public CatalogDiscController(IBucketProvider bucketProvider, ICatalogQueries catalogQueries, IDiscountQueries discountQueries)
         {
             // singleton that is the DB bucket similar to MySQL
             _discounts = bucketProvider.GetBucket("Discounts");
+            //_discountQueries = discountQueries;
             _catalogQueries = catalogQueries ?? throw new ArgumentNullException(nameof(catalogQueries));
         }
 
@@ -100,12 +102,12 @@ namespace CatalogApi.Controllers
          * GET (APIGateway) http://localhost:7000/catalog-api/products/disc/offerings/{productId}
          */
         [HttpGet, Route("offerings/{productId}")]
-        public async Task<IActionResult> OfferingsDisc(string productID)
+        public async Task<IActionResult> OfferingsDisc(string productId)
         {
-            if (productID == null)
+            if (productId == null)
                 return BadRequest();
 
-            var offerings = await _catalogQueries.GetOfferings(productID);
+            var offerings = await _catalogQueries.GetOfferings(productId);
 
             // build the Couchbase query string to get the discounts for each offering_key
             string statement = "select id, offering_keys, tiers, product_key, supplier_key, type from Discounts where any k in offering_keys satisfies";
@@ -170,12 +172,12 @@ namespace CatalogApi.Controllers
          * GET (APIGateway) http://localhost:7000/catalog-api/products/disc/singleOfferings/{offeringId}
          */
         [HttpGet, Route("singleOffering/{offeringID}")]
-        public async Task<IActionResult> SingleOfferingDisc(string offeringID)
+        public async Task<IActionResult> SingleOfferingDisc(string offeringId)
         {
-            if (offeringID == null)
+            if (offeringId == null)
                 return BadRequest();
 
-            var offering = await _catalogQueries.GetSingleOffering(offeringID);
+            var offering = await _catalogQueries.GetSingleOffering(offeringId);
 
             if (offering.Count() == 0)
                 return NotFound();

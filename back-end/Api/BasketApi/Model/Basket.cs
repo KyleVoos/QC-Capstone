@@ -9,14 +9,14 @@ using System.Collections.Generic;
  */
 namespace BasketApi.Model
 {
-    public class Basket
+    public class Basket<TEntity> where TEntity : class
     {
         // NOT USER ID, I generate this on the backend
         public Guid? Uid { get; set; }
         public DateTime? Date { get; set; }
         public int total_items { get; set; }
         public decimal total_cost { get; set; }
-        public List<Offerings> Offerings { get; set; }
+        public IEnumerable<TEntity> Offerings { get; set; }
         
         
         public Basket() { }

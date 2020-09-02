@@ -8,6 +8,7 @@ using CatalogApi.Infrastructure;
 using CatalogApi.Model;
 using CatalogApi.ViewModel;
 using System.Net;
+using CatalogApi.Infrastructure.Services;
 
 namespace CatalogApi.Controllers
 {
@@ -15,11 +16,13 @@ namespace CatalogApi.Controllers
     [ApiController]
     public class CatalogController : ControllerBase
     {
-        private CatalogContext _catalogContext;
+        private readonly CatalogContext _catalogContext;
+        private readonly ICatalogQueries _catalogQueries;
 
-        public CatalogController(CatalogContext context)
+        public CatalogController(CatalogContext context, ICatalogQueries catalogQueries)
         {
             _catalogContext = context;
+            _catalogQueries = catalogQueries;
         }
 
         // GET api/products/{id}
@@ -61,43 +64,9 @@ namespace CatalogApi.Controllers
             if (pageSize == 0)
                 return BadRequest();
 
-            // return in alphabetical order by default
-            var totalItems = await _catalogContext.products.LongCountAsync();
-            var newT = (from pt in _catalogContext.products
-                        join ot in _catalogContext.offerings on pt.Id equals ot.Product_key
-                        orderby ot.Unit_retail ascending
-                        select new PageView
-                        {
-                            Id = pt.Id, // in future change to product_key
-                            Product_name = pt.Product_name,
-                            Unit_retail = Math.Round(ot.Unit_retail, 2),
-                            Offering_key = ot.Id
-                        }).OrderBy(p => p.Product_name);
+            var pageView = await _catalogQueries.GetProducts(sort, pageSize, pageIndex);
 
-            // if the optional route parameter equals 'ascending' sort results in ascending price
-            if (sort == "ascending")
-                newT = newT.OrderBy(p => p.Unit_retail);
-
-            // if the optional route parameter equals 'descending' sort results in descending price
-            else if (sort == "descending")
-                newT = newT.OrderByDescending(p => p.Unit_retail);
-
-            // if the optional route parameter equals 'reverse' sort results in reverse alphabetical order
-            else if (sort == "reverse")
-                newT = newT.OrderByDescending(p => p.Product_name);
-
-            var itemsOnPage = await newT
-                                   .GroupBy(p => p.Product_name)
-                                   .Select(g => g.First())
-                                   .Skip(pageSize * pageIndex)
-                                   .Take(pageSize)
-                                   .ToListAsync();
-
-            // too the JSON being returned this is adding the fields pageIndex, pageSize, totalItems and itemsOnPage
-            var model = new PaginatedItemsViewModel<PageView>(
-                    pageIndex, pageSize, totalItems, itemsOnPage);
-
-            return Ok(model);
+            return Ok(pageView);
         }
 
         /*
@@ -124,33 +93,7 @@ namespace CatalogApi.Controllers
             if (productId == null)
                 return BadRequest();
 
-            /*
-             * The SQL query, this can be optimized to use a view instead of joining all three tables.
-             * The query is joining the products table with the offerings table on the product_key
-             * and then joining the offerings table with the suppliers table on the supplier_key.
-             */
-            var newTable = (from pt in _catalogContext.products
-                            join ot in _catalogContext.offerings on pt.Id equals ot.Product_key
-                            join st in _catalogContext.suppliers on ot.Supplier_key equals st.Id
-                            into temp
-                            from rt2 in temp.DefaultIfEmpty()
-                            where pt.Id == productId
-                            where pt.Active_date < currentUnixTimestamp
-                            orderby ot.Unit_retail
-                            select new
-                            {
-                                pt.Id,
-                                pt.Long_description,
-                                pt.Product_name,
-                                Offering_key = ot.Id,
-                                Unit_retail = Math.Round(ot.Unit_retail, 2).ToString(),
-                                ot.Uom,
-                                ot.Supplier_key,
-                                rt2.supplier_name
-                            });
-
-            var items = await newTable
-                                .ToListAsync();
+            var items = await _catalogQueries.GetOfferings(productId);
 
             // make sure that the number of elements in the array is not zero, indicates something went wrong.
             if (items.Count != 0)
@@ -172,25 +115,7 @@ namespace CatalogApi.Controllers
         {
             if (offeringId == null) return BadRequest();
 
-            var result = await (from ot in _catalogContext.offerings
-                                join pt in _catalogContext.products on ot.Product_key equals pt.Id
-                                join st in _catalogContext.suppliers on ot.Supplier_key equals st.Id
-                                into temp
-                                from rt2 in temp.DefaultIfEmpty()
-                                where ot.Id == offeringId
-                                select new
-                                {
-                                    pt.Product_name,
-                                    pt.Long_description,
-                                    ot.Product_key,
-                                    Offering_key = ot.Id,
-                                    Unit_retail = Math.Round(ot.Unit_retail, 2),
-                                    ot.Uom,
-                                    ot.Supplier_key,
-                                    rt2.supplier_name
-                                }).ToListAsync();
-
-            Console.WriteLine(result.Count());
+            var result = await _catalogQueries.GetSingleOffering(offeringId);
 
             if (result.Count() != 0) return Ok(result);
 
@@ -208,26 +133,7 @@ namespace CatalogApi.Controllers
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> RandomHomePageProducts()
         {
-
-            Random rnd = new Random();
-            var randomResults = await (from pt in _catalogContext.products
-                                       join ot in _catalogContext.offerings on pt.Id equals ot.Product_key
-                                       join st in _catalogContext.suppliers on ot.Supplier_key equals st.Id
-                                       orderby rnd.Next()
-                                       select new
-                                       {
-                                           pt.Product_name,
-                                           pt.Long_description,
-                                           Offering_key = ot.Id,
-                                           ot.Product_key,
-                                           ot.Supplier_key,
-                                           ot.Unit_retail,
-                                           ot.Uom,
-                                           st.supplier_name
-                                       })
-                                       .Take(15)
-                                       .OrderBy(i => i.Unit_retail)
-                                       .ToListAsync();
+            var randomResults = await _catalogQueries.RandomOfferings();
 
             if (randomResults.Count > 0)
                 return Ok(randomResults);

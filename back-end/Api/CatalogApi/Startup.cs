@@ -26,12 +26,14 @@ namespace CatalogApi
             services.AddDbContext<CatalogContext>(options =>
                 options.UseMySQL(Configuration.GetConnectionString("DefaultConnection")));
             services.AddScoped<ICatalogQueries, CatalogQueries>();
+            
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
 
             services
                 .AddCouchbase(Configuration.GetSection("Couchbase"))
                 .AddCouchbaseBucket<DiscountsContext>("Discounts");
 
+            services.AddSingleton<IDiscountQueries, DiscountQueries>();
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new Info { Title = "CatalogAPI" });
