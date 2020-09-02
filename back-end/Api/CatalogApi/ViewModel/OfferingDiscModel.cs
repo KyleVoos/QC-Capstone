@@ -1,4 +1,6 @@
-﻿namespace CatalogApi.ViewModel
+﻿using System;
+
+namespace CatalogApi.ViewModel
 {
     public class OfferingDiscModel
     {
@@ -15,5 +17,44 @@
         public int MaxQty { get; set; }                
         public string Discount_key { get; set; }
         public string Type { get; set; }
+
+        public void ApplyDiscount(Tiers tier, string type, string discount_key)
+        {
+            SetDiscountKey(discount_key);
+            SetDiscountType(type);
+            SetMaxQuantity(tier.MaxQty);
+            SetDiscountPercentage(tier.DiscountPercentage);
+            SetDiscountPrice();
+        }
+
+        private void SetDiscountKey(string discount_key)
+        {
+            Discount_key = discount_key;
+        }
+
+        private void SetDiscountType(string type)
+        {
+            Type = type;
+        }
+
+        private void SetDiscountPrice()
+        {
+            Discount_price = (Convert.ToDecimal(Unit_retail) * (PercentageToDecimal())).ToString();
+        }        
+
+        private void SetDiscountPercentage(decimal discount_percentage)
+        {
+            Discount_percentage = discount_percentage.ToString();
+        }
+
+        private void SetMaxQuantity(int maxQty)
+        {
+            MaxQty = maxQty;
+        }
+        
+        private decimal PercentageToDecimal()
+        {
+            return (1 - (Convert.ToDecimal(Discount_percentage) / 100));
+        }
     }
 }

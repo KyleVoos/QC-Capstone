@@ -8,6 +8,6 @@ namespace CatalogApi.Infrastructure.Services
 {
     public interface IDiscountQueries
     {
-        Task<List<Discounts>> GetOfferingDiscounts(List<string> OfferingIDs);
+        Task<List<Discounts>> GetOfferingDiscounts(List<OfferingDiscModel> offerings);
     }
 }

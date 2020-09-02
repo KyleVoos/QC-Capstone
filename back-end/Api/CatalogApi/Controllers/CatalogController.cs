@@ -33,7 +33,6 @@ namespace CatalogApi.Controllers
         [ProducesResponseType(typeof(Products), (int)HttpStatusCode.OK)]
         public async Task<ActionResult<Products>> ItemByIdAsync(string id)
         {
-
             if (id == null)
                 return BadRequest();
 
@@ -80,15 +79,6 @@ namespace CatalogApi.Controllers
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> OfferingsByIdAsync(string productId)
         {
-            /*
-             * Not really ever used, this was just a test to see if when querying for products
-             * they could also be filtered by if the active_date was greater than the Unix 
-             * timestamp of the current time current 
-             */
-            DateTime dateTime = DateTime.Now;
-            DateTimeOffset dto = DateTimeOffset.Now;
-            Int64 currentUnixTimestamp = dto.ToUnixTimeSeconds();
-
             // make sure that the product ID is received from the frontend in the URL
             if (productId == null)
                 return BadRequest();
