@@ -39,12 +39,12 @@ namespace CatalogApi.ViewModel
 
         private void SetDiscountPrice()
         {
-            Discount_price = (Convert.ToDecimal(Unit_retail) * (PercentageToDecimal())).ToString();
+            Discount_price = Math.Round((Convert.ToDecimal(Unit_retail) * (PercentageToDecimal())), 2).ToString();
         }        
 
         private void SetDiscountPercentage(decimal discount_percentage)
         {
-            Discount_percentage = discount_percentage.ToString();
+            Discount_percentage = Math.Round(discount_percentage, 2).ToString();
         }
 
         private void SetMaxQuantity(int maxQty)

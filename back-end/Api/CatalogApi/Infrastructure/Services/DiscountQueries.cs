@@ -21,26 +21,34 @@ namespace CatalogApi.Infrastructure.Services
             queryStatements = new Dictionary<int, string>
             {
                 { 1, "select * from Discounts where product_key = $id" },
-                { 2, "select id, offering_keys, tiers, product_key, supplier_key, type from Discounts where any k in offering_keys satisfies k = $id end" },
+                { 2, "select id, offering_keys, tiers, product_key, supplier_key, type from Discounts where any k in offering_keys satisfies " },
                 { 3, "SELECT tiers FROM Discounts where " }
             };
         }
 
-        public Task<List<Discounts>> GetOfferingDiscounts(List<OfferingDiscModel> offerings)
+        public Task GetOfferingDiscounts(List<OfferingDiscModel> offerings)
         {
-            var keys = offerings.Select(off => off.Offering_key).ToList();
-            var statement = BuildQueryStatement(2, keys);
+            try
+            {
+                var keys = offerings.Select(off => off.Offering_key).ToList();
+                var statement = BuildQueryStatement(2, keys);
 
-            // add the query string as the QueryRequest statement
-            var queryRequest = new QueryRequest()
-                .Statement(statement);
+                // add the query string as the QueryRequest statement
+                var queryRequest = new QueryRequest()
+                    .Statement(statement);
 
-            // send the query to the Couchbase Discounts bucket
-            var result = _discountsContext.Query<Discounts>(queryRequest);
-            FindOfferingsDiscount(offerings, result.Rows);
+                
+                // send the query to the Couchbase Discounts bucket
+                var result = _discountsContext.Query<Discounts>(queryRequest);
+                Console.WriteLine($"result: {result.Status} {result.Message}");
+                FindOfferingsDiscount(offerings, result.Rows);
+            }
+            catch (Exception ex)
+            {
+                return Task.FromException(ex);
+            }
 
-
-            return null;
+            return Task.CompletedTask;
         }
 
         private void FindOfferingsDiscount(List<OfferingDiscModel> offerings, List<Discounts> discounts)
@@ -66,11 +74,13 @@ namespace CatalogApi.Infrastructure.Services
 
         private void ApplyDiscountToOffering(OfferingDiscModel offering, Discounts discount)
         {
+            Console.WriteLine($"applying discount {offering.Offering_key}");
             if (discount.Type == "PRODUCT_DISCOUNT")
                 offering.ApplyDiscount(discount.tiers[0], discount.Type, discount.Id);
             else if (discount.Type == "SUPPLIER_DISCOUNT")
             {
                 int index = discount.Offering_keys.IndexOf(offering.Offering_key, 0);
+                offering.ApplyDiscount(discount.tiers[index], discount.Type, discount.Id);
             }
         }
 
@@ -83,10 +93,16 @@ namespace CatalogApi.Infrastructure.Services
                 case 1:
                     break;
                 case 2:
+                    int i = 0;
                     foreach(var key in keys)
                     {
-
+                        if (i == 0)
+                            statement += " k = '" + key + "'";
+                        else
+                            statement += " or k = '" + key + "'";
+                        
                     }
+                    statement += " end";
                     break;
                 case 3:
                     break;

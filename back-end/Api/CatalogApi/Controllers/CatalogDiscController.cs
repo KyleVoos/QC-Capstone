@@ -11,6 +11,7 @@ using CatalogApi.Model;
 using CatalogApi.Infrastructure.Services;
 using System.Net;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
 
 /*
  * This is a replacement for the original CatalogController that includes discount information.
@@ -29,13 +30,19 @@ namespace CatalogApi.Controllers
         private IBucket _discounts;
         private readonly IDiscountQueries _discountQueries;
         private readonly ICatalogQueries _catalogQueries;
+        private readonly ILogger<CatalogDiscController> _logger;
 
-        public CatalogDiscController(IBucketProvider bucketProvider, ICatalogQueries catalogQueries, IDiscountQueries discountQueries)
+        public CatalogDiscController(
+            IBucketProvider bucketProvider, 
+            ICatalogQueries catalogQueries, 
+            IDiscountQueries discountQueries, 
+            ILogger<CatalogDiscController> logger)
         {
             // singleton that is the DB bucket similar to MySQL
             _discounts = bucketProvider.GetBucket("Discounts");
             _discountQueries = discountQueries;
             _catalogQueries = catalogQueries ?? throw new ArgumentNullException(nameof(catalogQueries));
+            _logger = logger;
         }
 
         /*
@@ -109,6 +116,11 @@ namespace CatalogApi.Controllers
 
             var offerings = await _catalogQueries.GetOfferings(productId);
 
+            var res = _discountQueries.GetOfferingDiscounts(offerings);
+
+            if (res.Status == TaskStatus.Faulted)
+                _logger.LogError(res.Exception.Message);
+            /*
             // build the Couchbase query string to get the discounts for each offering_key
             string statement = "select id, offering_keys, tiers, product_key, supplier_key, type from Discounts where any k in offering_keys satisfies";
 
@@ -162,6 +174,7 @@ namespace CatalogApi.Controllers
                     }
                 }
             }
+            */
 
             return Ok(offerings);
         }
@@ -182,43 +195,47 @@ namespace CatalogApi.Controllers
             if (offering.Count() == 0)
                 return NotFound();
 
+            await _discountQueries.GetOfferingDiscounts(offering);
+
+            return Ok(offering[0]);
+
             // build our query string where we add in the offering_key as a parameter
-            var queryRequest = new QueryRequest()
-                    .Statement("select id, offering_keys, tiers, product_key, supplier_key, type from Discounts where any k in offering_keys satisfies k = $id end")
-                    .AddNamedParameter("$id", offering[0].Offering_key);
-            var result = _discounts.Query<Discounts>(queryRequest);
+            //var queryRequest = new QueryRequest()
+            //        .Statement("select id, offering_keys, tiers, product_key, supplier_key, type from Discounts where any k in offering_keys satisfies k = $id end")
+            //        .AddNamedParameter("$id", offering[0].Offering_key);
+            //var result = _discounts.Query<Discounts>(queryRequest);
 
-            if (result.Success)
-            {
-                // foreach but only iterates once because there is only a single Discount returned
-                foreach (Discounts discounts in result)
-                {
-                    if (discounts.Offering_keys.Contains(offering[0].Offering_key))
-                    {
-                        offering[0].Discount_key = discounts.Id;
-                        offering[0].Type = discounts.Type;
-                        Console.WriteLine($"offering[{0}].Type = {offering[0].Type}");
-                        if (discounts.Type == "PRODUCT_DISCOUNT")
-                        {
-                            offering[0].MaxQty = discounts.tiers[0].MaxQty;
-                            offering[0].Discount_price = Math.Round(Convert.ToDecimal(offering[0].Unit_retail) * (1 - (discounts.tiers[0].DiscountPercentage / 100)), 2).ToString();
-                            offering[0].Discount_percentage = Math.Round((discounts.tiers[0].DiscountPercentage), 2).ToString();
-                        }
-                        else if (discounts.Type == "SUPPLIER_DISCOUNT")
-                        {
-                            int index = discounts.Offering_keys.IndexOf(offering[0].Offering_key, 0);
-                            offering[0].MaxQty = discounts.tiers[index].MaxQty;
-                            offering[0].Discount_percentage = Math.Round((discounts.tiers[index].DiscountPercentage), 2).ToString();
-                            offering[0].Discount_price = Math.Round(Convert.ToDecimal(offering[0].Unit_retail) * (1 - (discounts.tiers[0].DiscountPercentage / 100)), 2).ToString();
-                        }
-                    }
-                }
+            //if (result.Success)
+            //{
+            //    // foreach but only iterates once because there is only a single Discount returned
+            //    foreach (Discounts discounts in result)
+            //    {
+            //        if (discounts.Offering_keys.Contains(offering[0].Offering_key))
+            //        {
+            //            offering[0].Discount_key = discounts.Id;
+            //            offering[0].Type = discounts.Type;
+            //            Console.WriteLine($"offering[{0}].Type = {offering[0].Type}");
+            //            if (discounts.Type == "PRODUCT_DISCOUNT")
+            //            {
+            //                offering[0].MaxQty = discounts.tiers[0].MaxQty;
+            //                offering[0].Discount_price = Math.Round(Convert.ToDecimal(offering[0].Unit_retail) * (1 - (discounts.tiers[0].DiscountPercentage / 100)), 2).ToString();
+            //                offering[0].Discount_percentage = Math.Round((discounts.tiers[0].DiscountPercentage), 2).ToString();
+            //            }
+            //            else if (discounts.Type == "SUPPLIER_DISCOUNT")
+            //            {
+            //                int index = discounts.Offering_keys.IndexOf(offering[0].Offering_key, 0);
+            //                offering[0].MaxQty = discounts.tiers[index].MaxQty;
+            //                offering[0].Discount_percentage = Math.Round((discounts.tiers[index].DiscountPercentage), 2).ToString();
+            //                offering[0].Discount_price = Math.Round(Convert.ToDecimal(offering[0].Unit_retail) * (1 - (discounts.tiers[0].DiscountPercentage / 100)), 2).ToString();
+            //            }
+            //        }
+            //    }
 
-                return 
-                    Ok(offering[0]);
-            }
-            else
-                return Ok(offering[0]);            
+            //    return 
+            //        Ok(offering[0]);
+            //}
+            //else
+            //    return Ok(offering[0]);            
         }
 
         /*
