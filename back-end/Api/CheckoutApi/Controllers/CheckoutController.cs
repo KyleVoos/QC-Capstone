@@ -51,12 +51,10 @@ namespace CheckoutApi.Controllers
         [HttpGet, Route("getOrderHistory")]
         public async Task<IActionResult> retrieveOrderHist()
         {
-            var currentUser = HttpContext.User;
+            var ID = GetID();
 
-            if (!currentUser.HasClaim(c => c.Type == "user_id"))
+            if (ID == null)
                 return BadRequest();
-
-            var ID = currentUser.Claims.FirstOrDefault(c => c.Type == "user_id").Value;
 
             var result = await _checkoutBucket.GetAsync<Checkout>(ID);
 
@@ -73,14 +71,12 @@ namespace CheckoutApi.Controllers
          */
         [HttpPut, Route("add")]
         public async Task<IActionResult> add([FromHeader] string authorization)
-        {  
+        {
             // get the user_id from the decrypted Firebase token, stored in the HttpContext
-            var currentUser = HttpContext.User;
-            if (!currentUser.HasClaim(c => c.Type == "user_id"))
-            {
+            var ID = GetID();
+
+            if (ID == null)
                 return BadRequest();
-            }
-            var ID = currentUser.Claims.FirstOrDefault(c => c.Type == "user_id").Value;
             // split the authorization header string to remove 'Bearer' and isolate the JWT token
             string[] auth = authorization.Split(' ');
 
@@ -183,12 +179,10 @@ namespace CheckoutApi.Controllers
             // make sure the model bound correctly
             if (ModelState.IsValid)
             {
-                var currentUser = HttpContext.User;
+                var ID = GetID();
 
-                if (!currentUser.HasClaim(c => c.Type == "user_id"))
+                if (ID == null)
                     return BadRequest();
-
-                var ID = currentUser.Claims.FirstOrDefault(c => c.Type == "user_id").Value;
 
                 // set the Uid that can be retreived from the Firebase token if its null
                 if (newUserInfo.Uid == null)
@@ -214,12 +208,11 @@ namespace CheckoutApi.Controllers
         [HttpGet, Route("getUserInfo")]
         public async Task<IActionResult> GetUserInfo()
         {
-            var currentUser = HttpContext.User;
-            if (!currentUser.HasClaim(c => c.Type == "user_id"))
-            {
+            var ID = GetID();
+
+            if (ID == null)
                 return BadRequest();
-            }
-            var ID = currentUser.Claims.FirstOrDefault(c => c.Type == "user_id").Value;
+
             var result = await _userInfoBucket.GetAsync<UserInfo>(ID);
 
             if (!result.Success)
@@ -292,6 +285,16 @@ namespace CheckoutApi.Controllers
                 // send the email: uses the interface located in CheckoutApi/Services
                 await _emailSender.SendEmailAsync(order.Shipping.Email, subject, messageBody, name);
             }
+        }
+
+        private string GetID()
+        {
+            var currentUser = HttpContext.User;
+
+            if (!currentUser.HasClaim(c => c.Type == "user_id"))
+                return null;
+
+            return currentUser.Claims.FirstOrDefault(c => c.Type == "user_id").Value;
         }
     }
 }

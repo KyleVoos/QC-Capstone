@@ -36,7 +36,6 @@ namespace CatalogApi.Infrastructure.Services
                 // add the query string as the QueryRequest statement
                 var queryRequest = new QueryRequest()
                     .Statement(statement);
-
                 
                 // send the query to the Couchbase Discounts bucket
                 var result = _discountsContext.Query<Discounts>(queryRequest);
@@ -99,8 +98,7 @@ namespace CatalogApi.Infrastructure.Services
                         if (i == 0)
                             statement += " k = '" + key + "'";
                         else
-                            statement += " or k = '" + key + "'";
-                        
+                            statement += " or k = '" + key + "'";                        
                     }
                     statement += " end";
                     break;
@@ -108,10 +106,7 @@ namespace CatalogApi.Infrastructure.Services
                     break;
             }
 
-
             return statement;
         }
-
-
     }
 }
